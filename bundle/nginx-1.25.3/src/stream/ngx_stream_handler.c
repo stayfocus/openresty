@@ -42,6 +42,12 @@ ngx_stream_init_connection(ngx_connection_t *c)
 
     port = c->listening->servers;
 
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+    if (port->naddrs > 1 || c->listening->transparent) {
+#else
+    if (port->naddrs > 1) {
+#endif
+    
     if (port->naddrs > 1) {
 
         /*
@@ -114,6 +120,7 @@ ngx_stream_init_connection(ngx_connection_t *c)
             break;
         }
     }
+}
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_stream_session_t));
     if (s == NULL) {

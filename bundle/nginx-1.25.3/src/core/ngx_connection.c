@@ -515,6 +515,31 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 }
             }
 
+#if (NGX_HAVE_TRANSPARENT_PROXY && __linux)
+        if (ls[i].transparent && !ngx_test_config) {
+
+            int  on = 1;
+
+#ifdef IP_TRANSPARENT
+            if (ls[i].sockaddr->sa_family == AF_INET) {
+                if (setsockopt(s, IPPROTO_IP, IP_TRANSPARENT,
+                               (const void *) &on, sizeof(on)) == -1)
+                {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  "setsockopt(IP_TRANSPARENT) %V failed",
+                                  &ls[i].addr_text);
+                    goto failed;
+                }
+            }
+#else
+            ngx_log_error(NGX_LOG_EMERG, log, 0,
+                          "listen transparent is not supported: IP_TRANSPARENT is not defined");
+            goto failed;
+#endif
+        }
+#endif
+
+
 #if (NGX_HAVE_REUSEPORT)
 
             if (ls[i].reuseport && !ngx_test_config) {

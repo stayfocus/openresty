@@ -226,6 +226,12 @@ ngx_http_init_connection(ngx_connection_t *c)
 
     if (port->naddrs > 1) {
 
+        #if (NGX_HAVE_TRANSPARENT_PROXY)
+        if (port->naddrs > 1 || c->listening->transparent) {
+        #else
+        if (port->naddrs > 1) {
+        #endif
+        
         /*
          * there are several addresses on this port and one of them
          * is an "*:port" wildcard so getsockname() in ngx_http_server_addr()
@@ -275,7 +281,7 @@ ngx_http_init_connection(ngx_connection_t *c)
 
             break;
         }
-
+    }
     } else {
 
         switch (c->local_sockaddr->sa_family) {

@@ -701,6 +701,17 @@ ngx_stream_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
+        if (ngx_strcmp(value[i].data, "transparent") == 0) {
+        #if (NGX_HAVE_TRANSPARENT_PROXY)
+            ls->transparent = 1;
+            continue;
+        #else
+            ngx_conf_log_error(...);
+            return NGX_CONF_ERROR;
+        #endif
+        }
+
+
         if (ngx_strncmp(value[i].data, "ipv6only=o", 10) == 0) {
 #if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
             if (ngx_strcmp(&value[i].data[10], "n") == 0) {

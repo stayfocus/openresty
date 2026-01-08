@@ -230,6 +230,14 @@ ngx_event_accept(ngx_event_t *ev)
         c->local_sockaddr = ls->sockaddr;
         c->local_socklen = ls->socklen;
 
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+        if (ls->transparent) {
+            c->local_sockaddr = NULL;
+            c->local_socklen = 0;
+        }
+#endif
+
+
 #if (NGX_HAVE_UNIX_DOMAIN)
         if (c->sockaddr->sa_family == AF_UNIX) {
             c->tcp_nopush = NGX_TCP_NOPUSH_DISABLED;

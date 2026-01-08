@@ -72,6 +72,12 @@ struct ngx_listening_s {
 #endif
     unsigned            reuseport:1;
     unsigned            add_reuseport:1;
+
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+    unsigned            transparent:1;   /* listen ... transparent */
+#endif
+
+
     unsigned            keepalive:2;
     unsigned            quic:1;
 

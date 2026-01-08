@@ -58,6 +58,10 @@ typedef struct {
     unsigned                       reuseport:1;
     unsigned                       so_keepalive:2;
     unsigned                       proxy_protocol:1;
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+    unsigned                       transparent:1;
+#endif
+
 #if (NGX_HAVE_KEEPALIVE_TUNABLE)
     int                            tcp_keepidle;
     int                            tcp_keepintvl;
