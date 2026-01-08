@@ -49,6 +49,7 @@ jobs:
       # 4️⃣ 验证 resty.core
       - name: Verify resty.core
         run: |
+          chmod +x /usr/local/openresty/bin/resty
           /usr/local/openresty/bin/resty -e "require 'resty.core'; print('resty.core OK')"
 
       # 5️⃣ 打包编译产物
