@@ -528,13 +528,13 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                     ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
                                   "setsockopt(IP_TRANSPARENT) %V failed",
                                   &ls[i].addr_text);
-                    goto failed;
+                    return NGX_ERROR;
                 }
             }
 #else
             ngx_log_error(NGX_LOG_EMERG, log, 0,
                           "listen transparent is not supported: IP_TRANSPARENT is not defined");
-            goto failed;
+            return NGX_ERROR;
 #endif
         }
 #endif
