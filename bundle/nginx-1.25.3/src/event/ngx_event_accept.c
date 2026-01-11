@@ -8,6 +8,14 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_event.h>
+#if (NGX_HAVE_TRANSPARENT_PROXY && __linux)
+#include <netinet/in.h>
+#include <sys/socket.h>
+#ifndef SO_ORIGINAL_DST
+#define SO_ORIGINAL_DST 80
+#endif
+#endif
+
 
 
 static ngx_int_t ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all);
@@ -230,12 +238,49 @@ ngx_event_accept(ngx_event_t *ev)
         c->local_sockaddr = ls->sockaddr;
         c->local_socklen = ls->socklen;
 
-#if (NGX_HAVE_TRANSPARENT_PROXY)
-        if (ls->transparent) {
-            c->local_sockaddr = NULL;
-            c->local_socklen = 0;
+#if (NGX_HAVE_TRANSPARENT_PROXY && __linux)
+    if (ls->transparent) {
+
+        struct sockaddr_storage  *orig_dst;
+        socklen_t                 orig_len;
+
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+              "transparent: original dst family=%d",
+              c->local_sockaddr->sa_family);
+
+
+        orig_dst = ngx_palloc(c->pool, sizeof(struct sockaddr_storage));
+        if (orig_dst == NULL) {
+            ngx_close_accepted_connection(c);
+            return;
         }
+
+        ngx_memzero(orig_dst, sizeof(*orig_dst));
+        orig_len = sizeof(*orig_dst);
+
+        /* try to get original destination (TPROXY) */
+        if (getsockopt(c->fd, SOL_IP, SO_ORIGINAL_DST,
+                       orig_dst, &orig_len) == 0)
+        {
+            c->local_sockaddr = (struct sockaddr *) orig_dst;
+            c->local_socklen  = orig_len;
+
+        } else {
+            /* fallback: use getsockname to avoid NULL deref */
+            orig_len = sizeof(*orig_dst);
+
+            if (getsockname(c->fd,
+                            (struct sockaddr *) orig_dst,
+                            &orig_len) == 0)
+            {
+                c->local_sockaddr = (struct sockaddr *) orig_dst;
+                c->local_socklen  = orig_len;
+            }
+            /* else: keep ls->sockaddr as last resort */
+        }
+    }
 #endif
+
 
 
 #if (NGX_HAVE_UNIX_DOMAIN)
