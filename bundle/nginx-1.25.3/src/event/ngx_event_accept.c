@@ -244,9 +244,10 @@ ngx_event_accept(ngx_event_t *ev)
         struct sockaddr_storage  *orig_dst;
         socklen_t                 orig_len;
 
-        ngx_log_error(NGX_LOG_WARN, c->log, 0,
-              "transparent: original dst family=%d",
-              c->local_sockaddr->sa_family);
+        ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, 0,
+              "###T_PROXY_ACCEPT_HIT### c=%p pool=%p log=%p local=%p",
+              c, c->pool, c->log, c->local_sockaddr);
+
 
 
         orig_dst = ngx_palloc(c->pool, sizeof(struct sockaddr_storage));
@@ -275,6 +276,9 @@ ngx_event_accept(ngx_event_t *ev)
             {
                 c->local_sockaddr = (struct sockaddr *) orig_dst;
                 c->local_socklen  = orig_len;
+            } else {
+                c->local_sockaddr = ls->sockaddr;
+                c->local_socklen  = ls->socklen;
             }
             /* else: keep ls->sockaddr as last resort */
         }

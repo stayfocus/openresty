@@ -42,84 +42,84 @@ ngx_stream_init_connection(ngx_connection_t *c)
 
     port = c->listening->servers;
 
-#if (NGX_HAVE_TRANSPARENT_PROXY)
-    if (port->naddrs > 1 || c->listening->transparent) {
-#else
-    if (port->naddrs > 1) {
-#endif
-    
-    if (port->naddrs > 1) {
+/*
+ * Server selection must be based on the listening address:port.
+ * In transparent mode, c->local_sockaddr may be rewritten to original dst,
+ * so DO NOT rely on it for choosing addr_conf.
+ */
 
-        /*
-         * There are several addresses on this port and one of them
-         * is the "*:port" wildcard so getsockname() is needed to determine
-         * the server address.
-         *
-         * AcceptEx() and recvmsg() already gave this address.
-         */
+if (port->naddrs > 1) {
 
-        if (ngx_connection_local_sockaddr(c, NULL, 0) != NGX_OK) {
-            ngx_stream_close_connection(c);
-            return;
-        }
-
-        sa = c->local_sockaddr;
-
-        switch (sa->sa_family) {
-
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            sin6 = (struct sockaddr_in6 *) sa;
-
-            addr6 = port->addrs;
-
-            /* the last address is "*" */
-
-            for (i = 0; i < port->naddrs - 1; i++) {
-                if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16) == 0) {
-                    break;
-                }
-            }
-
-            addr_conf = &addr6[i].conf;
-
-            break;
-#endif
-
-        default: /* AF_INET */
-            sin = (struct sockaddr_in *) sa;
-
-            addr = port->addrs;
-
-            /* the last address is "*" */
-
-            for (i = 0; i < port->naddrs - 1; i++) {
-                if (addr[i].addr == sin->sin_addr.s_addr) {
-                    break;
-                }
-            }
-
-            addr_conf = &addr[i].conf;
-
-            break;
-        }
-
-    } else {
-        switch (c->local_sockaddr->sa_family) {
-
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            addr6 = port->addrs;
-            addr_conf = &addr6[0].conf;
-            break;
-#endif
-
-        default: /* AF_INET */
-            addr = port->addrs;
-            addr_conf = &addr[0].conf;
-            break;
-        }
+    /*
+     * There are several addresses on this port and one of them is "*:port".
+     * Need getsockname() to determine which local address was accepted.
+     */
+    if (ngx_connection_local_sockaddr(c, NULL, 0) != NGX_OK) {
+        ngx_stream_close_connection(c);
+        return;
     }
+
+    sa = c->local_sockaddr;
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        sin6 = (struct sockaddr_in6 *) sa;
+        addr6 = port->addrs;
+
+        for (i = 0; i < port->naddrs - 1; i++) {
+            if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16) == 0) {
+                break;
+            }
+        }
+
+        addr_conf = &addr6[i].conf;
+        break;
+#endif
+
+    default: /* AF_INET */
+        sin = (struct sockaddr_in *) sa;
+        addr = port->addrs;
+
+        for (i = 0; i < port->naddrs - 1; i++) {
+            if (addr[i].addr == sin->sin_addr.s_addr) {
+                break;
+            }
+        }
+
+        addr_conf = &addr[i].conf;
+        break;
+    }
+
+} else {
+
+    /*
+     * Single address on this port: choose based on the listening socket's family,
+     * not c->local_sockaddr (which may be original dst in transparent mode).
+     */
+    sa = c->listening->sockaddr;
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        addr6 = port->addrs;
+        addr_conf = &addr6[0].conf;
+        break;
+#endif
+
+    default: /* AF_INET */
+        addr = port->addrs;
+        addr_conf = &addr[0].conf;
+        break;
+    }
+}
+
+/* hard guard: never crash even if config mismatch */
+if (addr_conf == NULL || addr_conf->ctx == NULL) {
+    ngx_stream_close_connection(c);
+    return;
 }
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_stream_session_t));
