@@ -536,6 +536,21 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                           "listen transparent is not supported: IP_TRANSPARENT is not defined");
             return NGX_ERROR;
 #endif
+
+#if (NGX_HAVE_INET6)
+#ifdef IPV6_TRANSPARENT
+            if (ls[i].sockaddr->sa_family == AF_INET6) {
+                if (setsockopt(s, IPPROTO_IPV6, IPV6_TRANSPARENT,
+                               (const void *) &on, sizeof(on)) == -1)
+                {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  "setsockopt(IPV6_TRANSPARENT) %V failed",
+                                  &ls[i].addr_text);
+                    return NGX_ERROR;
+                }
+            }
+#endif
+#endif
         }
 #endif
 

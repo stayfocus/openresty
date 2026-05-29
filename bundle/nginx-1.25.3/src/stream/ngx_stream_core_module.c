@@ -706,7 +706,8 @@ ngx_stream_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             ls->transparent = 1;
             continue;
         #else
-            ngx_conf_log_error(...);
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "transparent is not supported on this platform");
             return NGX_CONF_ERROR;
         #endif
         }

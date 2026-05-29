@@ -239,50 +239,37 @@ ngx_event_accept(ngx_event_t *ev)
         c->local_socklen = ls->socklen;
 
 #if (NGX_HAVE_TRANSPARENT_PROXY && __linux)
-    if (ls->transparent) {
+        if (ls->transparent && c->sockaddr->sa_family == AF_INET) {
 
-        struct sockaddr_storage  *orig_dst;
-        socklen_t                 orig_len;
+            struct sockaddr_storage  *orig_dst;
+            socklen_t                 orig_len;
 
-        ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, 0,
-              "###T_PROXY_ACCEPT_HIT### c=%p pool=%p log=%p local=%p",
-              c, c->pool, c->log, c->local_sockaddr);
+            orig_dst = ngx_palloc(c->pool, sizeof(struct sockaddr_storage));
+            if (orig_dst == NULL) {
+                ngx_close_accepted_connection(c);
+                return;
+            }
 
-
-
-        orig_dst = ngx_palloc(c->pool, sizeof(struct sockaddr_storage));
-        if (orig_dst == NULL) {
-            ngx_close_accepted_connection(c);
-            return;
-        }
-
-        ngx_memzero(orig_dst, sizeof(*orig_dst));
-        orig_len = sizeof(*orig_dst);
-
-        /* try to get original destination (TPROXY) */
-        if (getsockopt(c->fd, SOL_IP, SO_ORIGINAL_DST,
-                       orig_dst, &orig_len) == 0)
-        {
-            c->local_sockaddr = (struct sockaddr *) orig_dst;
-            c->local_socklen  = orig_len;
-
-        } else {
-            /* fallback: use getsockname to avoid NULL deref */
+            ngx_memzero(orig_dst, sizeof(*orig_dst));
             orig_len = sizeof(*orig_dst);
 
-            if (getsockname(c->fd,
-                            (struct sockaddr *) orig_dst,
-                            &orig_len) == 0)
+            if (getsockopt(c->fd, IPPROTO_IP, SO_ORIGINAL_DST,
+                           orig_dst, &orig_len)
+                == 0)
             {
-                c->local_sockaddr = (struct sockaddr *) orig_dst;
-                c->local_socklen  = orig_len;
+                c->proxy_original_sockaddr = (struct sockaddr *) orig_dst;
+                c->proxy_original_socklen = orig_len;
+
+                ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
+                               "transparent proxy original destination: %V",
+                               &ls->addr_text);
+
             } else {
-                c->local_sockaddr = ls->sockaddr;
-                c->local_socklen  = ls->socklen;
+                ngx_log_error(NGX_LOG_ALERT, log, ngx_socket_errno,
+                              "getsockopt(SO_ORIGINAL_DST) %V failed",
+                              &ls->addr_text);
             }
-            /* else: keep ls->sockaddr as last resort */
         }
-    }
 #endif
 
 

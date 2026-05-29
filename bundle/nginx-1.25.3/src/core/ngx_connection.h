@@ -168,6 +168,11 @@ struct ngx_connection_s {
     struct sockaddr    *local_sockaddr;
     socklen_t           local_socklen;
 
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+    struct sockaddr    *proxy_original_sockaddr;
+    socklen_t           proxy_original_socklen;
+#endif
+
     ngx_buf_t          *buffer;
 
     ngx_queue_t         queue;

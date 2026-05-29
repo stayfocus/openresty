@@ -25,6 +25,12 @@ static ngx_int_t ngx_stream_variable_proxy_protocol_port(
     ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_stream_variable_proxy_protocol_tlv(
     ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+static ngx_int_t ngx_stream_variable_proxy_destination_addr(
+    ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_stream_variable_proxy_destination_port(
+    ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
+#endif
 static ngx_int_t ngx_stream_variable_server_addr(ngx_stream_session_t *s,
     ngx_stream_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_stream_variable_server_port(ngx_stream_session_t *s,
@@ -84,6 +90,26 @@ static ngx_stream_variable_t  ngx_stream_core_variables[] = {
     { ngx_string("proxy_protocol_tlv_"), NULL,
       ngx_stream_variable_proxy_protocol_tlv,
       0, NGX_STREAM_VAR_PREFIX, 0 },
+
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+    { ngx_string("proxy_destination_addr"), NULL,
+      ngx_stream_variable_proxy_destination_addr, 0, 0, 0 },
+
+    { ngx_string("proxy_destination_port"), NULL,
+      ngx_stream_variable_proxy_destination_port, 0, 0, 0 },
+
+    { ngx_string("original_dst_addr"), NULL,
+      ngx_stream_variable_proxy_destination_addr, 0, 0, 0 },
+
+    { ngx_string("original_dst_port"), NULL,
+      ngx_stream_variable_proxy_destination_port, 0, 0, 0 },
+
+    { ngx_string("real_server_addr"), NULL,
+      ngx_stream_variable_proxy_destination_addr, 0, 0, 0 },
+
+    { ngx_string("real_server_port"), NULL,
+      ngx_stream_variable_proxy_destination_port, 0, 0, 0 },
+#endif
 
     { ngx_string("server_addr"), NULL,
       ngx_stream_variable_server_addr, 0, 0, 0 },
@@ -658,6 +684,78 @@ ngx_stream_variable_proxy_protocol_tlv(ngx_stream_session_t *s,
 
     return NGX_OK;
 }
+
+
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+
+static ngx_int_t
+ngx_stream_variable_proxy_destination_addr(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data)
+{
+    ngx_connection_t  *c;
+
+    c = s->connection;
+
+    if (c->proxy_original_sockaddr == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->data = ngx_pnalloc(c->pool, NGX_SOCKADDR_STRLEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_sock_ntop(c->proxy_original_sockaddr,
+                           c->proxy_original_socklen, v->data,
+                           NGX_SOCKADDR_STRLEN, 0);
+    if (v->len == 0) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_stream_variable_proxy_destination_port(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data)
+{
+    ngx_uint_t         port;
+    ngx_connection_t  *c;
+
+    c = s->connection;
+
+    if (c->proxy_original_sockaddr == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    port = ngx_inet_get_port(c->proxy_original_sockaddr);
+    if (port == 0 || port >= 65536) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->data = ngx_pnalloc(c->pool, sizeof("65535") - 1);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_sprintf(v->data, "%ui", port) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+#endif
 
 
 static ngx_int_t
