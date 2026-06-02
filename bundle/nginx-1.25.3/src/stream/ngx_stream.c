@@ -499,6 +499,10 @@ ngx_stream_optimize_servers(ngx_conf_t *cf, ngx_array_t *ports)
 
             ls->wildcard = addr[i].opt.wildcard;
 
+#if (NGX_HAVE_TRANSPARENT_PROXY)
+            ls->transparent = addr[i].opt.transparent;
+#endif
+
             ls->keepalive = addr[i].opt.so_keepalive;
 #if (NGX_HAVE_KEEPALIVE_TUNABLE)
             ls->keepidle = addr[i].opt.tcp_keepidle;
